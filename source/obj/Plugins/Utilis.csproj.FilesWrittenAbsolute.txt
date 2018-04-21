@@ -1,0 +1,3 @@
+/Users/johnwilson/Mother_Github/Utilis/source/obj/Plugins/.NETFramework,Version=v4.0.AssemblyAttribute.cs
+/Users/johnwilson/Mother_Github/Utilis/GameData/Utilis/Plugins/Utilis.dll
+/Users/johnwilson/Mother_Github/Utilis/source/obj/Plugins/Utilis.dll

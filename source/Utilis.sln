@@ -1,0 +1,17 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Utilis", "Utilis.csproj", "{18FB1A6C-B23C-4045-A697-C2B73BAEA041}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Plugins|Any CPU = Plugins|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{18FB1A6C-B23C-4045-A697-C2B73BAEA041}.Plugins|Any CPU.ActiveCfg = Plugins|Any CPU
+		{18FB1A6C-B23C-4045-A697-C2B73BAEA041}.Plugins|Any CPU.Build.0 = Plugins|Any CPU
+	EndGlobalSection
+	GlobalSection(MonoDevelopProperties) = preSolution
+		outputpath = ..\GameData\Utilis\Plugins
+	EndGlobalSection
+EndGlobal
