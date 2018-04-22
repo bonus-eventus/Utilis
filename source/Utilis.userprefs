@@ -1,8 +1,13 @@
 ﻿<Properties StartupItem="Utilis.csproj">
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Plugins" PreferredExecutionTarget="Unity.Instance.Unity Editor" />
-  <MonoDevelop.Ide.Workbench />
+  <MonoDevelop.Ide.Workbench ActiveDocument="ModuleEmissiveLight.cs">
+    <Files>
+      <File FileName="ModuleEmissiveLight.cs" Line="280" Column="59" />
+    </Files>
+  </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
     <BreakpointStore />
   </MonoDevelop.Ide.DebuggingService.Breakpoints>
   <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+  <AuthorInfo Name="Bonus Eventus" Email="fortuneetbono@gmail.com" Copyright="Bonus Eventus" Company="" Trademark="" />
 </Properties>

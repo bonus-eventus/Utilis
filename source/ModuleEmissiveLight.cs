@@ -19,246 +19,440 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 using System;
+using System.Text.RegularExpressions;
 using System.Collections.Generic;
 using UnityEngine;
-
 namespace Utilis
 {
-	public class ModuleEmissiveLight : PartModule, IScalarModule
+	public class ModuleEmissiveLight : PartModule, IResourceConsumer
 	{
-		[KSPEvent (guiActive = true, guiName = "Lights Off", guiActiveEditor = true)]
-		public void LightsOff ()
+		//GUI Stuff
+		[KSPField (isPersistant = true, guiActive = false, guiActiveEditor = false, guiName = "Intensity", advancedTweakable = true), UI_FloatRange (minValue = 0f, maxValue = 3f, stepIncrement = 0.05f)]
+		public float Intensity = 1f;
+
+		[KSPField (isPersistant = true, guiActive = false, guiActiveEditor = false, guiName = "Range", advancedTweakable = true), UI_FloatRange (minValue = 0f, maxValue = 3f, stepIncrement = 0.05f)]
+		public float Range = 1f;
+
+		[KSPField (isPersistant = true, guiActive = false, guiActiveEditor = false, guiName = "SpotAngle", advancedTweakable = true), UI_FloatRange (minValue = 0f, maxValue = 3f, stepIncrement = 0.05f)]
+		public float SpotAngle = 1f;
+
+		[KSPEvent(guiName="Turn On", active = true, guiActive=true, guiActiveEditor=true)]
+		public void LightOn()
 		{
-			SetLightState (false);
-			int count = base.part.symmetryCounterparts.Count;
-			while (count-- > 0)
-			{
-				if (part.symmetryCounterparts [count] != part)
-				{
-					part.symmetryCounterparts [count].Modules.GetModule<ModuleLight> (0).SetLightState (false);
-				}
-			}
-		}
-		
-		[KSPEvent (guiActive = true, guiName = "Lights On", guiActiveEditor = true)]
-		public void LightsOn ()
-		{
-			SetLightState (true);
+			SetLightState(true);
+
 			int count = part.symmetryCounterparts.Count;
-			while (count-- > 0)
+
+			if(count != 0 || part.symmetryCounterparts != null)
 			{
-				if (part.symmetryCounterparts [count] != part)
+				while(count-- >0)
 				{
-					part.symmetryCounterparts [count].Modules.GetModule<ModuleLight> (0).SetLightState (true);
+					Part p = part.symmetryCounterparts[count];
+
+					if(part != p) p.Modules.GetModule<ModuleEmissiveLight> (0).SetLightState(true);
 				}
 			}
 		}
 
-		[KSPAction ("Turn Light Off")]
-		public void LightOffAction (KSPActionParam param)
+		[KSPEvent(guiName="Turn Off", active = false, guiActive=true, guiActiveEditor=true)]
+		public void LightOff()
 		{
-			SetLightState (false);
-		}
-		
-		[KSPAction ("Turn Light On")]
-		public void LightOnAction (KSPActionParam param)
-		{
-			if (!this.uiWriteLock)
+			SetLightState(false);
+
+			int count = part.symmetryCounterparts.Count;
+
+			if(count != 0 || part.symmetryCounterparts != null)
 			{
-				SetLightState (true);
+				while(count-- >0)
+				{
+					Part p = part.symmetryCounterparts[count];
+
+					if(part != p) p.Modules.GetModule<ModuleEmissiveLight> (0).SetLightState(false);
+				}
 			}
 		}
 
-		[KSPField(isPersistant=true, guiName="Status", guiActive=true, guiActiveEditor=true)]
-		public string statusStr = "Nominal";
+		[KSPAction("Toggle Light")]
+		public void ToggleLight(KSPActionParam param)
+		{
+			if(isOn)
+			{
+				LightOff ();
+			}
+			else
+			{
+				LightOn ();
+			}
+		}
+
+		[KSPField(guiName="Status", guiActive=true,guiActiveEditor=true)]
+		public string status = "Nominal";
+
+
+		//Fields
 
 		[KSPField]
-		public string OKStr = "Nominal";
+		public string ModuleID = "ModuleEmissiveLight";
+
+		[KSPField(isPersistant=true)]
+		public bool isOn = false;
+
+		[KSPField(isPersistant=true)]
+		public bool operational = true;
 
 		[KSPField]
-		public string OffStr = "Off";
+		public bool AdvancedLightTweakable = false;
 
 		[KSPField]
-		public string moduleID = "ModuleEmissiveLight";
+		public string ShaderProperty = "_EmissiveColor";
 
-		//all lights that are intended to be used should have the same name
 		[KSPField]
-		public string lightName;
+		public string lightsName;
 
-		//the speed the light should dim at
 		[KSPField]
-		public float lightDimSpeed = 1f;
+		public string excludeRenderList;
 
-		[KSPField (isPersistant = true)]
-		public bool uiWriteLock;
+		//don't override
+		[KSPField (isPersistant=true)]
+		public Vector3 _c = new Vector3(1f,1f,1f);
 
-		//should resources be used
-		[KSPField]
-		public bool useResources;
-
-		//resource consumption rate multiplier
-		[KSPField]
-		public float mult = 1f;
-
-		[KSPField (isPersistant = true)]
-		public bool isOn;
-
-		//each curve represents an RGB channel
 		[KSPField]
 		public FloatCurve redCurve = new FloatCurve();
-		
+
 		[KSPField]
 		public FloatCurve greenCurve = new FloatCurve();
-		
+
 		[KSPField]
 		public FloatCurve blueCurve = new FloatCurve();
 
+		[KSPField (isPersistant=true)]
+		public float curveTime = 0f;
+
+		[KSPField (isPersistant=true)]
+		public bool Animate = true;
+
 		[KSPField]
-		public FloatCurve alphaCurve = new FloatCurve();
+		public float Efficiency = 1f;
 
-		private bool isStarted;
+		[KSPField]
+		public float DimSpeed = 1f;
 
-		private float resourceFraction;
+		[KSPField]
+		public bool DrawRsources = false;
 
-		private UtilisLightList lightList;
-
-		//IConsumeResources required lists
-		
 		private List<PartResourceDefinition> consumedResources;
 
+		//needed by IResourceConsumer interface
 		public List<PartResourceDefinition> GetConsumedResources ()
 		{
 			return consumedResources;
 		}
 
-		public override string GetInfo ()
+		[KSPField]
+		public float TimeRate = 0.1f;
+
+		private UtilisLightList LightList;
+
+		private UtilisRendererList renderers;
+
+		public List<Renderer> excludedRenderers;
+
+		private BaseEvent turnOn;
+
+		private BaseEvent turnOff;
+
+		private float dtCounter;
+
+		private void hasResources()
 		{
-			string text = string.Empty;
-			if (useResources)
+			if (!resHandler.UpdateModuleResourceInputs (ref status, Efficiency, 0.9, true, true))
 			{
-				text += resHandler.PrintModuleResources ((double)mult);
+				operational = false;
 			}
-			return text;
+			else if(!operational)
+			{
+				operational = true;
+			}
 		}
 
-		private Color lightColor;
-
-		private Color lastColor;
-
-		private float currentTime;
-
-		private float dimRate;
-
-		public bool CanMove
+		public Vector3 Prop
 		{
 			get
 			{
-				return !useResources || resourceFraction > 0.5f;
+				return new Vector3 (Intensity,Range,SpotAngle);
 			}
-		}
-		
-		public float GetScalar
-		{
-			get
+			set
 			{
-				return (!isOn) ? 0f : 1f;
-			}
-		}
-		
-		public EventData<float, float> OnMoving
-		{
-			get
-			{
-				return OnMove;
-			}
-		}
-		
-		public EventData<float> OnStop
-		{
-			get
-			{
-				return OnStopped;
-			}
-		}
-		
-		private EventData<float, float> OnMove = new EventData<float, float> ("OnMove");
-		
-		private EventData<float> OnStopped = new EventData<float> ("OnStop");
-		
-		public string ScalarModuleID
-		{
-			get
-			{
-				return moduleID;
-			}
-		}
-		
-		//
-		// Methods
-		//
-		public bool IsMoving()
-		{
-			return false;
-		}
-		
-		public void SetScalar (float t)
-		{
-			if (t > 0.5f)
-			{
-				if (!isOn)
-				{
-					LightsOn ();
-				}
-			}
-			else
-			{
-				if (t <= 0.5f && isOn)
-				{
-					LightsOff ();
-				}
-			}
-		}
-		
-		public void SetUIRead (bool state)
-		{
-		}
-		
-		public void SetUIWrite (bool state)
-		{
-			uiWriteLock = !state;
-			if (state)
-			{
-				Events ["LightsOn"].active = !isOn;
-				Events ["LightsOff"].active = isOn;
-			}
-			else
-			{
-				Events ["LightsOn"].active = false;
-				Events ["LightsOff"].active = false;
+				Intensity = value.x;
+				Range = value.y;
+				SpotAngle = value.z;
 			}
 		}
 
-		public void SetLightState (bool state)
+		public Color Color
 		{
-			if (state)
+			get
+			{
+				//Color is returns the value of the FloatCurves evaluated multiplied by the stored color '_c'
+				//_c is stored as a persistent Vector3
+				Color c = new Color();
+
+				c.r = _c.x * redCurve.Evaluate(curveTime);
+
+				c.g = _c.y * greenCurve.Evaluate(curveTime);
+
+				c.b = _c.z * blueCurve.Evaluate(curveTime);
+
+				c.a = 1f;
+
+				return c;
+			}
+
+			set
+			{
+				_c.x = value.r;
+
+				_c.y = value.g;
+
+				_c.z = value.b;
+			}
+		}
+
+		//Methods
+
+		public void SetLightState(bool state)
+		{
+			if(state)
 			{
 				isOn = true;
-				statusStr = OKStr;
+
+				Animate = true;
+
+				LightList.Enable();
+
+				turnOn.active = false;
+
+				turnOff.active = true;
 			}
 			else
 			{
 				isOn = false;
-				statusStr = OffStr;
-			}
 
-			base.Events ["LightsOn"].active = !state;
-			base.Events ["LightsOff"].active = state;
+				turnOn.active = true;
+
+				turnOff.active = false;
+			}
 		}
 
-		//callback for ModuleColorSelect
-		private void GetColor(Color color)
+		public void UpdateColor(Color color, bool ignoreColor)
 		{
-			lightColor = color;
+			if(!ignoreColor)this.Color = color;
+
+			if(LightList.State)
+			{
+				LightList.SetProp(this.Color);
+
+				renderers.SetColor(this.Color);
+			}
+		}
+
+		private void setupFields(BaseField field, bool state)
+		{
+			field.guiActiveEditor = state;
+			UI_FloatRange range = (UI_FloatRange)field.uiControlEditor;
+			range.affectSymCounterparts = UI_Scene.All;
+			range.onFieldChanged = UpdateLightProp;
+			Debug.Log ("[ModuleColorSelect] "+field.name+" setup complete");
+		}
+
+		public void UpdateLightProp(BaseField field, object oldValueObj)
+		{
+			SetProp (Prop);
+
+			int count = part.symmetryCounterparts.Count;
+
+			if(count > 0 || part.symmetryCounterparts != null)
+			{
+				while(count-- >0)
+				{
+					Part p = part.symmetryCounterparts[count];
+
+					if(part != p) p.Modules.GetModule<ModuleEmissiveLight> (0).SetProp(Prop);
+				}
+			}
+		}
+
+		public void SetProp(Vector3 prop)
+		{
+			Prop = prop;
+			LightList.SetProp (prop);
+		}
+
+		public void Update()
+		{
+			if(HighLogic.LoadedSceneIsEditor || HighLogic.LoadedSceneIsFlight) 
+			{
+				if(operational && isOn || Animate)UpdateColor (Color.black, true);
+			}
+		}
+
+		public void FixedUpdate()
+		{
+			if(operational && isOn)
+			{
+				if(DrawRsources)hasResources ();
+
+				if(curveTime < 1f)
+				{
+					curveTime = Mathf.Lerp(0f,1f,dtCounter);
+
+					dtCounter += TimeRate * DimSpeed;
+				}
+			}
+			else if(Animate)
+			{
+				if(curveTime > 0f)
+				{
+					curveTime = Mathf.Lerp(0f,1f,dtCounter);
+
+					dtCounter -= TimeRate * DimSpeed;
+
+				}
+				else if(curveTime <= 0f) 
+				{
+					LightList.Disable();
+
+					Animate = false;
+				}
+
+			}
+			else if(!operational)
+			{
+				if(DrawRsources)hasResources ();
+			}
+		}
+
+		private void Setup()
+		{
+			//get events
+			//u = new UtilisLog("["+ModuleID+"]");
+
+			turnOn = base.Events["LightOn"];
+
+			turnOff = base.Events["LightOff"];
+
+			setupFields(base.Fields["Intensity"], AdvancedLightTweakable);
+
+			setupFields(base.Fields["Range"] , AdvancedLightTweakable);
+
+			setupFields(base.Fields["SpotAngle"], AdvancedLightTweakable);
+
+			//u.Log ("base.Events setup complete.");
+
+			//u.Log ("ToggleState called.");
+
+			//get lights
+			if(lightsName != string.Empty)
+			{
+				List<Light> lights = part.FindModelComponents<Light>(lightsName);
+
+				if(lights.Count != 0 || lights != null)
+				{
+					LightList = new UtilisLightList(lights);
+
+					//u.Log ("LightList created");
+				}
+				else
+				{
+					//u.Exception("<string> lightsName FindModelComponents query returned null or had a length of 0.");
+				}
+			}
+			else
+			{
+				//u.Exception("<string> lightsName is empty.");
+			}
+
+			//get renderers
+			List<Renderer> rList = part.FindModelComponents<Renderer>();
+
+			if(!string.IsNullOrEmpty(excludeRenderList))
+			{
+				if(rList != null || rList.Count >0)
+				{
+					renderers =  new UtilisRendererList(rList,excludedRenderers, ShaderProperty);
+				}
+				else
+				{
+					//u.Exception("No Unity Renderer components found in model.mu file.");
+				}
+			}
+			else
+			{
+				//u.Log ("No excluded Renderers found.");
+				if(rList != null || rList.Count >0)renderers =  new UtilisRendererList(rList, ShaderProperty);
+			}
+
+			//u.Log ("LightList state is set.");
+
+			//u.Log ("renderers state is set.");
+
+			//set events state
+			if(isOn)
+			{
+				LightList.Enable();
+				//UpdateColor(Color.cyan);
+				turnOn.active = false;
+
+				turnOff.active = true;
+			}
+			else
+			{
+				LightList.Disable();
+				//UpdateColor(Color.black);
+				turnOn.active = true;
+
+				turnOff.active = false;
+			}
+
+			//part.AddOnMouseExit(new Part.OnActionDelegate(OnMouseExit));
+		}
+
+		public override void OnLoad (ConfigNode node)
+		{
+			base.OnLoad (node);
+			//create new log object
+			//u = new UtilisLog("["+ModuleID+"]");
+
+			string list = string.Empty;
+
+			if(node.HasValue("excludeRenderList"))
+			{
+				Debug.Log ("node.HasValue(excludeRenderList");
+
+				list = node.GetValue("excludeRenderList").ToString();
+
+				list = Regex.Replace(list, @"\s+", string.Empty);
+
+				string[] array = list.Split(new char[]{';'});
+
+				Debug.Log ("string sanitized.");
+
+				if(array != null || array.Length >0)
+				{
+					Debug.Log ("array was not null and it was longer than 0");
+
+					excludedRenderers = new List<Renderer>();
+
+					int count = array.Length;
+
+					while(count-- >0)
+					{
+						Renderer r = part.FindModelComponent<Renderer>(array[count]);
+
+						if(r != null)excludedRenderers.Add(r);
+					}
+				}
+			}
 		}
 
 		public override void OnAwake ()
@@ -281,83 +475,50 @@ namespace Utilis
 			}
 		}
 
-		public override void OnStart (PartModule.StartState state)
+		public override void OnStart (StartState state)
 		{
-			List<Light> lights = new List<Light> (part.FindModelComponents<Light> (lightName));
+			Debug.Log ("onStart has begun executing.");
 
-			lightList = new UtilisLightList(lights);
+			base.OnStart (state);
 
-			if (this.isOn)
-			{
-				LightsOn ();
-			}
-			else
-			{
-				LightsOff ();
-			}
-			if (HighLogic.LoadedSceneIsFlight)
-			{
-				isStarted = true;
-				if (vessel.situation == Vessel.Situations.PRELAUNCH && isOn)
-				{
-					vessel.ActionGroups [KSPActionGroup.Light] = true;
-				}
-			}
+			Setup();
 		}
 
-		public void FixedUpdate ()
+		public override void OnStartFinished (StartState state)
 		{
-			if (HighLogic.LoadedSceneIsEditor)
-			{
-				if (lastColor != lightColor)
-				{
-
-				}
-				lastColor = lightColor;
-				return;
-			}
-
-			if (isStarted)
-			{
-				float fixedDeltaTime = TimeWarp.fixedDeltaTime;
-				if (isOn && useResources)
-				{
-					resourceFraction = (float)this.resHandler.UpdateModuleResourceInputs (ref this.statusStr, 1.0, 0.99, false, false, true);
-					if (resourceFraction >= 0.99f)
-					{
-						if (statusStr != OKStr)
-						{
-							statusStr = OKStr;
-						}
-					}
-					else
-					{
-						SetLightState (false);
-					}
-
-					if (currentTime < 1f)
-					{
-						dimRate += lightDimSpeed * fixedDeltaTime;
-						currentTime = Mathf.Lerp (0f, 1f, dimRate);
-						Color c = new Color();
-						c.r = redCurve.Evaluate(currentTime);
-						c.g = greenCurve.Evaluate(currentTime);
-						c.b = blueCurve.Evaluate(currentTime);
-						lightList.SetProp(c);
-					}
-
-				}else{
-					dimRate -= lightDimSpeed * fixedDeltaTime;
-					currentTime = Mathf.Lerp (1f, 0f, dimRate);
-					Color c = new Color();
-					c.r = redCurve.Evaluate(currentTime);
-					c.g = greenCurve.Evaluate(currentTime);
-					c.b = blueCurve.Evaluate(currentTime);
-					lightList.SetProp(c);
-				}
-			}
+			base.OnStartFinished (state);
+			ModuleSelectColor msc = part.FindModulesImplementing<ModuleSelectColor>()[0];
+			//ModuleTweakable mt = part.FindModulesImplementing<ModuleTweakable>()[0];
+			if(msc != null)msc.Add(UpdateColor);
+			//if(manualDeploy)if(mt != null)mt.Add(GetValue);
 		}
-
-		//end
 	}
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
